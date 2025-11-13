@@ -16,16 +16,13 @@
 
 ## Предварительная настройка
 ## 1. Установите Git
-### bash
 ### sudo apt update
 ### sudo apt install git
 ## 2. Установите GitHub CLI
-### bash
 ### sudo apt update
 ### sudo apt install gh
 
 ## 3. Авторизуйтесь в GitHub CLI
-### bash
 ### gh auth login
 ## Следуйте инструкциям:
 
@@ -43,15 +40,12 @@
 
 ## Проверьте авторизацию:
 
-### bash
 ### gh auth status
 ## Использование скрипта
 ## 1. Клонируйте репозиторий со скриптом:
-### bash
 ### git clone https://github.com/chkrain/setup-project-krax.git
 ### cd setup-project-krax
 ## 2. Запустите скрипт:
-### bash
 ### chmod +x setup-project-krax.sh
 ### ./setup-project-krax.sh
 ## 3. Скрипт спросит параметры:
@@ -81,7 +75,6 @@
 ### Скрипт работает как раньше, оставляет себя в проекте
 
 ## Создаваемая структура проекта
-### text
 ### ваш-проект/
 ### ├── .vscode/
 ### │   └── launch.json          
