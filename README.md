@@ -1,3 +1,7 @@
+# После клонирования выполнить:
+cd setup-project-krax
+chmod +x setup-project-krax.sh
+./setup-project-krax.sh
 # Krax Project Auto-Setup Script
 ## Автоматический скрипт для создания проектов Krax с полной структурой и автоматической загрузкой на GitHub. Скрипт самостоятельно удаляется после использования.
 
