@@ -360,6 +360,12 @@ clone_dependencies() {
 create_github_repo() {
     echo -e "${YELLOW}🚀 Создание репозитория на GitHub...${NC}"
     
+    if [ "$SELF_DELETE" = true ]; then
+        cd ..
+        mkdir -p "$repo_name"
+        cd "$repo_name"
+    fi
+    
     if [ -d ".git" ]; then
         echo -e "${YELLOW}⚠️  Git репозиторий уже существует, очищаем...${NC}"
         rm -rf .git
@@ -403,6 +409,9 @@ self_cleanup() {
     if [ "$SELF_DELETE" = true ]; then
         echo -e "${YELLOW}🗑️  Автоудаление скрипта...${NC}"
         
+        PROJECT_PATH="$(pwd)"
+        
+        cd "$SCRIPT_DIR"
         cd ..
         
         if [ -d "$SCRIPT_DIR" ]; then
@@ -410,7 +419,7 @@ self_cleanup() {
             echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
         fi
         
-        cd "$repo_name"
+        cd "$PROJECT_PATH"
     fi
 }
 
