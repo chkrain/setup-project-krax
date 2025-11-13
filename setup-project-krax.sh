@@ -429,6 +429,15 @@ main() {
     
     check_dependencies
     get_user_input
+    
+    # Если автоудаление включено, сначала создаем директорию проекта
+    if [ "$SELF_DELETE" = true ]; then
+        echo -e "${YELLOW}📁 Подготовка директории проекта...${NC}"
+        cd ..
+        mkdir -p "$repo_name"
+        cd "$repo_name"
+    fi
+    
     create_project_structure
     clone_dependencies
     create_github_repo
