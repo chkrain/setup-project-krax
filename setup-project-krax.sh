@@ -360,6 +360,11 @@ clone_dependencies() {
 create_github_repo() {
     echo -e "${YELLOW}🚀 Создание репозитория на GitHub...${NC}"
     
+    if [ -d ".git" ]; then
+        echo -e "${YELLOW}⚠️  Git репозиторий уже существует, очищаем...${NC}"
+        rm -rf .git
+    fi
+    
     git config --global init.defaultBranch "$default_branch"
     
     git init
@@ -375,7 +380,7 @@ create_github_repo() {
         git reset -- setup-project-krax.sh README.md 2>/dev/null || true
     fi
     
-    git commit -m "Создано с помощью скрипта setup-project-krax.sh | First Commit: $repo_description"
+    git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
     
     if gh repo create "$repo_name" \
         --description "$repo_description" \
@@ -385,7 +390,12 @@ create_github_repo() {
         echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
         echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
     else
-        error_exit "Не удалось создать репозиторий на GitHub"
+        echo -e "${YELLOW}⚠️  Проблема с remote, пробуем альтернативный метод...${NC}"
+        gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility"
+        git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
+        git push -u origin "$default_branch"
+        echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
+        echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
     fi
 }
 
