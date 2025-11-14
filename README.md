@@ -1,4 +1,5 @@
-# После клонирования выполнить:
+# Создано для ubuntu24
+git clone https://github.com/chkrain/setup-project-krax.git
 cd setup-project-krax
 chmod +x setup-project-krax.sh
 ./setup-project-krax.sh
