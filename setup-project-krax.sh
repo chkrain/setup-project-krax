@@ -414,7 +414,7 @@ import_additional_resources() {
         echo -e "${RED}❌ Не удалось клонировать ETALON-250716${NC}"
     fi
 
-        if [ ! -d "images" ]; then
+    if [ ! -d "images" ]; then
         git clone https://github.com/chkrain/images.git 2>/dev/null && \
         echo -e "${GREEN}✅ images склонирован${NC}" || \
         echo -e "${RED}❌ Не удалось клонировать images${NC}"
@@ -454,21 +454,42 @@ import_additional_resources() {
         done
     fi
 
-    if [ -d "images/resources" ]; then
-        echo -e "${YELLOW}📁 Перемещение ресурсов из images.${NC}"
-        for file in images/resources/*; do
+    if [ -d "images" ]; then
+        echo -e "${YELLOW}📁 Перемещение изображений из images...${NC}"
+        for file in images/*; do
             if [ -f "$file" ]; then
                 filename=$(basename "$file")
-                if [ -f "resources/$filename" ]; then
-                    new_name="${filename%.*}_1.${filename##*.}"
-                    cp "$file" "resources/$new_name"
-                    echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                if [[ "$filename" == *.png || "$filename" == *.jpg || "$filename" == *.jpeg || "$filename" == *.gif || "$filename" == *.svg || "$filename" == *.webp || "$filename" == *.mng ]]; then
+                    if [ -f "resources/$filename" ]; then
+                        new_name="${filename%.*}_1.${filename##*.}"
+                        cp "$file" "resources/$new_name"
+                        echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                    else
+                        cp "$file" "resources/"
+                        echo -e "${GREEN}✅ $filename скопирован${NC}"
+                    fi
                 else
-                    cp "$file" "resources/"
-                    echo -e "${GREEN}✅ $filename скопирован${NC}"
+                    echo -e "${YELLOW}⚠️  Пропускаем $filename (не изображение)${NC}"
                 fi
             fi
         done
+        
+        if [ -d "images/resources" ]; then
+            echo -e "${YELLOW}📁 Перемещение ресурсов из images/resources...${NC}"
+            for file in images/resources/*; do
+                if [ -f "$file" ]; then
+                    filename=$(basename "$file")
+                    if [ -f "resources/$filename" ]; then
+                        new_name="${filename%.*}_1.${filename##*.}"
+                        cp "$file" "resources/$new_name"
+                        echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                    else
+                        cp "$file" "resources/"
+                        echo -e "${GREEN}✅ $filename скопирован${NC}"
+                    fi
+                fi
+            done
+        fi
     fi
 
     echo -e "${YELLOW}📄 Создание resources.qrc...${NC}"
