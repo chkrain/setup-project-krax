@@ -447,6 +447,35 @@ import_additional_resources() {
             fi
         done
     fi
+
+    echo -e "${YELLOW}📄 Создание resources.qrc...${NC}"
+    cat > resources/resources.qrc << 'EOF'
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+EOF
+
+    for file in resources/*; do
+        if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            echo "    <file>$filename</file>" >> resources/resources.qrc
+        fi
+    done
+
+    cat >> resources/resources.qrc << 'EOF'
+</qresource>
+</RCC>
+EOF
+    echo -e "${GREEN}✅ resources.qrc создан${NC}"
+    
+    echo -e "${YELLOW}📁 Копирование защищенных файлов...${NC}"
+    protected_files=("default.scada" "resources.qrc" "control.ex" "customplugin.py.ex" "pyproject.toml" "pysca-hmi.desktop" "pysca-hmi.png")
+    
+    for protected_file in "${protected_files[@]}"; do
+        if [ -f "$protected_file" ]; then
+            echo -e "${GREEN}✅ $protected_file сохранен${NC}"
+        fi
+    done
     
     echo -e "${YELLOW}🗑️  Очистка временных репозиториев...${NC}"
     [ -d "concretetheme" ] && rm -rf concretetheme && echo -e "${GREEN}✅ concretetheme удален${NC}"
