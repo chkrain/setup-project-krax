@@ -413,6 +413,12 @@ import_additional_resources() {
         echo -e "${GREEN}✅ ETALON-250716 склонирован${NC}" || \
         echo -e "${RED}❌ Не удалось клонировать ETALON-250716${NC}"
     fi
+
+        if [ ! -d "images" ]; then
+        git clone https://github.com/chkrain/images.git 2>/dev/null && \
+        echo -e "${GREEN}✅ images склонирован${NC}" || \
+        echo -e "${RED}❌ Не удалось клонировать images${NC}"
+    fi
     
     if [ -d "concretetheme/images" ]; then
         echo -e "${YELLOW}📁 Перемещение изображений из concretetheme...${NC}"
@@ -434,6 +440,23 @@ import_additional_resources() {
     if [ -d "ETALON-250716/resources" ]; then
         echo -e "${YELLOW}📁 Перемещение ресурсов из ETALON-250716...${NC}"
         for file in ETALON-250716/resources/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                if [ -f "resources/$filename" ]; then
+                    new_name="${filename%.*}_1.${filename##*.}"
+                    cp "$file" "resources/$new_name"
+                    echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                else
+                    cp "$file" "resources/"
+                    echo -e "${GREEN}✅ $filename скопирован${NC}"
+                fi
+            fi
+        done
+    fi
+
+    if [ -d "images/resources" ]; then
+        echo -e "${YELLOW}📁 Перемещение ресурсов из images.${NC}"
+        for file in images/resources/*; do
             if [ -f "$file" ]; then
                 filename=$(basename "$file")
                 if [ -f "resources/$filename" ]; then
