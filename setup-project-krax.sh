@@ -401,7 +401,6 @@ create_github_repo() {
     cd "$WORK_DIR"
     echo -e "${YELLOW}🔍 Проверяем созданные файлы...${NC}"
     
-    # Проверяем, есть ли созданные файлы проекта
     if [ ! -f "src/krax.py" ] && [ ! -f ".vscode/launch.json" ]; then
         echo -e "${RED}❌ Файлы проекта не найдены! Возможно, проблема с созданием структуры.${NC}"
         echo -e "${YELLOW}📁 Текущая директория: $(pwd)${NC}"
@@ -410,24 +409,21 @@ create_github_repo() {
         return 1
     fi
     
-    # Проверяем только файлы, которые НЕ относятся к проекту
-    existing_non_project_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" | wc -l)
-    existing_non_project_dirs=$(find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" | wc -l)
+    existing_non_project_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" ! -name "setup-project-krax.sh" | wc -l)
+    existing_non_project_dirs=$(find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" ! -name "pyplc" ! -name "pysca" ! -name "$repo_name" | wc -l)
     
     if [ "$existing_non_project_files" -gt 0 ] || [ "$existing_non_project_dirs" -gt 0 ]; then
         echo -e "${YELLOW}⚠️  В директории есть посторонние файлы/папки:${NC}"
-        # Показываем только посторонние файлы
-        find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" 2>/dev/null || true
-        find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" 2>/dev/null || true
+        find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" ! -name "setup-project-krax.sh" 2>/dev/null || true
+        find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" ! -name "pyplc" ! -name "pysca" ! -name "$repo_name" 2>/dev/null || true
         
         read -p "$(echo -e "${YELLOW}🗑️  Удалить посторонние файлы и продолжить? (y/n, по умолчанию: n): ${NC}")" delete_existing
         delete_existing=${delete_existing:-"n"}
         
         if [[ $delete_existing =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}🗑️  Удаление посторонних файлов...${NC}"
-            # Удаляем только посторонние файлы, сохраняя структуру проекта
-            find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" -delete 2>/dev/null || true
-            find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" -exec rm -rf {} + 2>/dev/null || true
+            find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" ! -name "setup-project-krax.sh" -delete 2>/dev/null || true
+            find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" ! -name "pyplc" ! -name "pysca" ! -name "$repo_name" -exec rm -rf {} + 2>/dev/null || true
             echo -e "${GREEN}✅ Посторонние файлы удалены${NC}"
         else
             echo -e "${YELLOW}ℹ️  Продолжаем с существующими файлами${NC}"
@@ -470,11 +466,24 @@ create_github_repo() {
     echo -e "${YELLOW}📁 Содержимое директории:${NC}"
     ls -la
     
-    # Просто добавляем все файлы, кроме явно исключенных
+    echo -e "${YELLOW}📦 Добавляем файлы проекта в git...${NC}"
+    git add .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
+    
+    if [ -d "pyplc" ] && [[ $clone_deps =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}📦 Добавляем pyplc...${NC}"
+        git add pyplc/ 2>/dev/null || true
+    fi
+    
+    if [ -d "pysca" ] && [[ $clone_deps =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}📦 Добавляем pysca...${NC}"
+        git add pysca/ 2>/dev/null || true
+    fi
+    
     if [ "$SELF_DELETE" = true ]; then
-        # Добавляем все, кроме скрипта и README.md
-        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" | while read file; do
-            git add -f "$file" 2>/dev/null || true
+        find . -type f -not -name "setup-project-krax.sh" -not -path "./.git/*" | while read file; do
+            if ! git ls-files --error-unmatch "$file" &>/dev/null; then
+                git add -f "$file" 2>/dev/null || true
+            fi
         done
     else
         git add .
@@ -501,13 +510,12 @@ create_github_repo() {
     
     if git diff --cached --quiet; then
         echo -e "${YELLOW}⚠️  Все еще нет изменений для коммита${NC}"
-        echo -e "${YELLOW}📁 Попробуем принудительно добавить ключевые файлы:${NC}"
-        # Принудительно добавляем ключевые файлы проекта
-        git add -f .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
+        echo -e "${YELLOW}📁 Принудительно добавляем все файлы...${NC}"
+        git add -f . 2>/dev/null || true
         git status --short
     fi
     
-    if ! git diff --cached --quiet; then
+    if ! git diff --cached --quiet || [ -n "$(git status --porcelain)" ]; then
         git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
         echo -e "${GREEN}✅ Коммит создан${NC}"
     else
@@ -560,19 +568,20 @@ self_cleanup() {
         
         PROJECT_PATH="$(pwd)"
         
-        cd "$SCRIPT_DIR"
-        cd ..
-        
-        if [ -d "$SCRIPT_DIR" ]; then
-            rm -rf "$SCRIPT_DIR"
-            echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
-        fi
-        if [ -d "$SCRIPT_DIR_TO_DELETE" ]; then
+        if [ -n "$SCRIPT_DIR_TO_DELETE" ] && [ -d "$SCRIPT_DIR_TO_DELETE" ]; then
+            echo -e "${YELLOW}🗑️  Удаляем директорию со скриптом: $SCRIPT_DIR_TO_DELETE${NC}"
             rm -rf "$SCRIPT_DIR_TO_DELETE"
-            echo -e "${GREEN}✅ Лишняя директория ушла${NC}"
+            echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
+        else
+            SCRIPT_BASE_DIR=$(basename "$SCRIPT_DIR")
+            if [ -d "$SCRIPT_BASE_DIR" ]; then
+                echo -e "${YELLOW}🗑️  Удаляем директорию: $SCRIPT_BASE_DIR${NC}"
+                rm -rf "$SCRIPT_BASE_DIR"
+                echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Директория со скриптом не найдена${NC}"
+            fi
         fi
-        
-        cd "$PROJECT_PATH"
     fi
 }
 
