@@ -40,15 +40,16 @@ get_user_input() {
     echo -e "${BLUE}🎯 Настройка нового проекта${NC}"
     
     if [ "$AUTO_MODE" = true ]; then
-        repo_name="krax-plc-project"
-        repo_description="Создано автоматически"
-        default_branch="main"
-        repo_visibility="private"
-        clone_deps="y"
-        
         if [[ "$(pwd)" == "$SCRIPT_DIR" ]]; then
             SELF_DELETE=true
+            repo_name=$(basename "$(dirname "$(pwd)")")
+        else
+            repo_name=$(basename "$(pwd)")
         fi
+        repo_description="First commit"
+        default_branch="main"
+        repo_visibility="public"
+        clone_deps="y"
         
         echo -e "${GREEN}📊 Автоматические настройки:${NC}"
         echo -e "  Название: ${GREEN}$repo_name${NC}"
@@ -105,7 +106,11 @@ get_user_input() {
 
 create_project_structure() {
     echo -e "${YELLOW}📁 Создание структуры проекта...${NC}"
-    cd ../
+    
+    if [ "$SELF_DELETE" = true ]; then
+        cd ../
+    fi
+    
     mkdir -p .vscode gui resources ui src
     
     cat > .vscode/launch.json << 'EOF'
@@ -459,6 +464,29 @@ create_github_repo() {
     fi
     
     cd "$WORK_DIR"
+
+    if [ "$AUTO_MODE" = true ]; then
+        echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
+        
+        if gh repo view "$repo_name" &>/dev/null; then
+            echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, подключаемся...${NC}"
+            git remote remove origin 2>/dev/null || true
+            git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
+            
+            git pull origin "$default_branch" --allow-unrelated-histories --no-edit 2>/dev/null || true
+            
+            git push -u origin "$default_branch" --force-with-lease 2>/dev/null || \
+            git push -u origin "$default_branch" --force
+        else
+            echo -e "${YELLOW}🆕 Создаем новый репозиторий...${NC}"
+            gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --source=. --push
+        fi
+        
+        echo -e "${GREEN}✅ Репозиторий настроен${NC}"
+        echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
+        return 0
+    fi
+
     echo -e "${YELLOW}🔍 Проверяем созданные файлы...${NC}"
     
     if [ ! -f "src/krax.py" ] && [ ! -f ".vscode/launch.json" ]; then
@@ -627,21 +655,18 @@ self_cleanup() {
         echo -e "${YELLOW}🗑️  Автоудаление скрипта...${NC}"
         
         CURRENT_DIR=$(pwd)
+        cd ..
         
         if [ -n "$SCRIPT_DIR_TO_DELETE" ] && [ -d "$SCRIPT_DIR_TO_DELETE" ]; then
             echo -e "${YELLOW}🗑️  Удаляем директорию со скриптом: $SCRIPT_DIR_TO_DELETE${NC}"
-            cd ..
             rm -rf "$SCRIPT_DIR_TO_DELETE"
             echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
         else
-            cd ..
             SCRIPT_BASE_DIR=$(basename "$SCRIPT_DIR")
             if [ -d "$SCRIPT_BASE_DIR" ]; then
                 echo -e "${YELLOW}🗑️  Удаляем директорию: $SCRIPT_BASE_DIR${NC}"
                 rm -rf "$SCRIPT_BASE_DIR"
                 echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
-            else
-                echo -e "${YELLOW}⚠️  Директория со скриптом не найдена${NC}"
             fi
         fi
         
@@ -674,20 +699,12 @@ main() {
         cd ..
         mkdir -p "$repo_name"
         cd "$repo_name"
-        PROJECT_ROOT=$(pwd)
-    else
-        PROJECT_ROOT=$(pwd)
     fi
     
     create_project_structure
     clone_dependencies
     import_additional_resources
     create_github_repo
-    
-    if [ "$SELF_DELETE" = true ]; then
-        cd ..
-    fi
-    
     self_cleanup
     
     echo -e "\n${GREEN}🎉 Настройка проекта успешно завершена!${NC}"
