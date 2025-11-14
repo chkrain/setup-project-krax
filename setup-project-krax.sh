@@ -449,20 +449,20 @@ import_additional_resources() {
     fi
 
     echo -e "${YELLOW}📄 Создание resources.qrc...${NC}"
-    cat > resources/resources.qrc << 'EOF'
+    cat > resources.qrc << 'EOF'
 <!DOCTYPE RCC>
 <RCC version="1.0">
 <qresource>
 EOF
 
-    for file in resources/*; do
+    for file in ../*; do
         if [ -f "$file" ]; then
             filename=$(basename "$file")
-            echo "    <file>$filename</file>" >> resources/resources.qrc
+            echo "    <file>$filename</file>" >> resources.qrc
         fi
     done
 
-    cat >> resources/resources.qrc << 'EOF'
+    cat >> resources.qrc << 'EOF'
 </qresource>
 </RCC>
 EOF
@@ -494,23 +494,47 @@ create_github_repo() {
     
     cd "$WORK_DIR"
 
+    # Получаем имя пользователя GitHub
+    GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "")
+    if [ -z "$GITHUB_USER" ]; then
+        error_exit "Не удалось получить имя пользователя GitHub. Проверьте авторизацию: gh auth login"
+    fi
+
     if [ "$AUTO_MODE" = true ]; then
         echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
         
         if gh repo view "$repo_name" &>/dev/null; then
-            echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, пушим изменения...${NC}"
-            git push -u origin "$default_branch" --force-with-lease 2>/dev/null || \
-            git push -u origin "$default_branch" --force
+            echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, подключаемся...${NC}"
+            git remote remove origin 2>/dev/null || true
+            git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
+            
+            echo -e "${YELLOW}📤 Отправляем изменения...${NC}"
+            if git push -u origin "$default_branch" --force-with-lease 2>/dev/null; then
+                echo -e "${GREEN}✅ Изменения отправлены${NC}"
+            else
+                git push -u origin "$default_branch" --force
+                echo -e "${GREEN}✅ Изменения отправлены (использован force)${NC}"
+            fi
         else
             echo -e "${YELLOW}🆕 Создаем новый репозиторий...${NC}"
-            gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --source=. --push
+            if gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --source=. --push 2>/dev/null; then
+                echo -e "${GREEN}✅ Репозиторий создан и отправлен${NC}"
+            else
+                echo -e "${RED}❌ Не удалось создать репозиторий автоматически${NC}"
+                echo -e "${YELLOW}🔄 Пробуем ручной метод...${NC}"
+                
+                # Ручное создание репозитория
+                gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --confirm
+                git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
+                git push -u origin "$default_branch"
+            fi
         fi
         
         echo -e "${GREEN}✅ Репозиторий настроен${NC}"
-        echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
+        echo -e "${GREEN}🔗 URL: https://github.com/$GITHUB_USER/$repo_name${NC}"
         return 0
     fi
-    
+
     echo -e "${YELLOW}🔍 Проверяем созданные файлы...${NC}"
     
     if [ ! -f "src/krax.py" ] && [ ! -f ".vscode/launch.json" ]; then
@@ -579,7 +603,7 @@ create_github_repo() {
     ls -la
     
     echo -e "${YELLOW}📦 Добавляем файлы проекта в git...${NC}"
-    git add .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
+    git add .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md resources.qrc 2>/dev/null || true
     
     if [ -d "pyplc" ] && [[ $clone_deps =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}📦 Добавляем pyplc...${NC}"
@@ -648,7 +672,7 @@ create_github_repo() {
         elif [[ $use_existing_repo =~ ^[Yy] ]]; then
             echo -e "${YELLOW}🔄 Подключаемся к существующему репозиторию...${NC}"
             git remote remove origin 2>/dev/null || true
-            git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
+            git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
             
             echo -e "${YELLOW}📥 Получаем изменения...${NC}"
             git pull origin "$default_branch" --allow-unrelated-histories --no-edit 2>/dev/null || \
@@ -671,7 +695,7 @@ create_github_repo() {
         fi
     fi
     
-    echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
+    echo -e "${GREEN}🔗 URL: https://github.com/$GITHUB_USER/$repo_name${NC}"
 }
 
 self_cleanup() {
