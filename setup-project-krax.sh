@@ -513,10 +513,11 @@ create_github_repo() {
                 git remote remove origin 2>/dev/null || true
                 git remote add origin "$EXPECTED_REMOTE"
             fi
-
-            git remote remove origin 2>/dev/null || true
-            git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
             
+            echo -e "  Текущий remote: ${CURRENT_REMOTE:-не установлен}"
+            echo -e "  Ожидаемый remote: $EXPECTED_REMOTE"
+            echo -e "  GitHub пользователь: $GITHUB_USER"
+            echo -e "  Имя репозитория: $repo_name"
             echo -e "${YELLOW}📤 Отправляем изменения...${NC}"
             if git push -u origin "$default_branch" --force-with-lease 2>/dev/null; then
                 echo -e "${GREEN}✅ Изменения отправлены${NC}"
