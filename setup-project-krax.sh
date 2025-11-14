@@ -393,9 +393,19 @@ create_github_repo() {
     
     if [ "$SELF_DELETE" = true ]; then
         SCRIPT_DIR_TO_DELETE="$SCRIPT_DIR"
-        cd ..
-        mkdir -p "$repo_name"
-        cd "$repo_name"
+        WORK_DIR="."
+    else
+        WORK_DIR="."
+    fi
+    
+    cd "$WORK_DIR"
+    echo -e "${YELLOW}🔍 Проверяем созданные файлы...${NC}"
+    if [ ! -f "src/krax.py" ] && [ ! -f ".vscode/launch.json" ]; then
+        echo -e "${RED}❌ Файлы проекта не найдены! Возможно, проблема с созданием структуры.${NC}"
+        echo -e "${YELLOW}📁 Текущая директория: $(pwd)${NC}"
+        echo -e "${YELLOW}📁 Содержимое:${NC}"
+        ls -la
+        return 1
     fi
     
     existing_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" | wc -l)
@@ -409,9 +419,28 @@ create_github_repo() {
         
         if [[ $delete_existing =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}🗑️  Удаление существующих файлов...${NC}"
+            if [ -d ".vscode" ]; then mv .vscode .vscode_backup; fi
+            if [ -d "src" ]; then mv src src_backup; fi
+            if [ -d "gui" ]; then mv gui gui_backup; fi
+            if [ -d "resources" ]; then mv resources resources_backup; fi
+            if [ -d "ui" ]; then mv ui ui_backup; fi
+            if [ -f "docker-compose.yaml" ]; then mv docker-compose.yaml docker-compose.yaml_backup; fi
+            if [ -f "requirements.txt" ]; then mv requirements.txt requirements.txt_backup; fi
+            if [ -f "README.md" ]; then mv README.md README.md_backup; fi
+            
             find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" -delete
             find . -maxdepth 1 -type d ! -name "." ! -name ".git" -exec rm -rf {} + 2>/dev/null || true
-            echo -e "${GREEN}✅ Существующие файлы удалены${NC}"
+            
+            if [ -d ".vscode_backup" ]; then mv .vscode_backup .vscode; fi
+            if [ -d "src_backup" ]; then mv src_backup src; fi
+            if [ -d "gui_backup" ]; then mv gui_backup gui; fi
+            if [ -d "resources_backup" ]; then mv resources_backup resources; fi
+            if [ -d "ui_backup" ]; then mv ui_backup ui; fi
+            if [ -f "docker-compose.yaml_backup" ]; then mv docker-compose.yaml_backup docker-compose.yaml; fi
+            if [ -f "requirements.txt_backup" ]; then mv requirements.txt_backup requirements.txt; fi
+            if [ -f "README.md_backup" ]; then mv README.md_backup README.md; fi
+            
+            echo -e "${GREEN}✅ Лишние файлы удалены, файлы проекта сохранены${NC}"
         else
             echo -e "${YELLOW}ℹ️  Продолжаем с существующими файлами${NC}"
         fi
@@ -450,9 +479,14 @@ create_github_repo() {
     
     echo -e "${YELLOW}📦 Добавление файлов в git...${NC}"
     
+    echo -e "${YELLOW}📁 Содержимое директории перед добавлением в git:${NC}"
+    find . -type f -not -path "./.git/*" | head -20
+    
     if [ "$SELF_DELETE" = true ]; then
-        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" | while read file; do
-            git add -f "$file"
+        git add -f .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
+        
+        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" -not -path "./.vscode/*" -not -path "./src/*" -not -path "./gui/*" -not -path "./resources/*" -not -path "./ui/*" | while read file; do
+            git add -f "$file" 2>/dev/null || true
         done
     else
         git add .
@@ -461,11 +495,26 @@ create_github_repo() {
     echo -e "${YELLOW}📊 Статус git:${NC}"
     git status --short
     
-    if git diff --cached --quiet && [ -z "$(git status --porcelain)" ]; then
-        echo -e "${YELLOW}⚠️  Нет изменений для коммита${NC}"
+    if git diff --cached --quiet; then
+        echo -e "${YELLOW}⚠️  Нет изменений для коммита. Проверяем неотслеживаемые файлы...${NC}"
+        UNTRACKED=$(git status --porcelain | grep "^??" | wc -l)
+        if [ "$UNTRACKED" -gt 0 ]; then
+            echo -e "${YELLOW}📁 Найдены неотслеживаемые файлы:${NC}"
+            git status --porcelain
+            read -p "$(echo -e "${YELLOW}📦 Добавить все файлы в git? (y/n, по умолчанию: y): ${NC}")" add_all
+            add_all=${add_all:-"y"}
+            if [[ $add_all =~ ^[Yy]$ ]]; then
+                git add .
+                git status --short
+            fi
+        fi
+    fi
+    
+    if git diff --cached --quiet; then
+        echo -e "${YELLOW}⚠️  Все еще нет изменений для коммита${NC}"
     else
-        git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description" || \
-        echo -e "${YELLOW}⚠️  Не удалось создать коммит (возможно, нет изменений)${NC}"
+        git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
+        echo -e "${GREEN}✅ Коммит создан${NC}"
     fi
     
     echo -e "${YELLOW}🔍 Проверка существования репозитория на GitHub...${NC}"
@@ -485,11 +534,11 @@ create_github_repo() {
             git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
             
             echo -e "${YELLOW}📥 Получаем изменения...${NC}"
-            git pull origin "$default_branch" --allow-unrelated-histories --no-edit || \
+            git pull origin "$default_branch" --allow-unrelated-histories --no-edit 2>/dev/null || \
             echo -e "${YELLOW}⚠️  Не удалось объединить истории, пробуем форсировать...${NC}"
             
             echo -e "${YELLOW}📤 Отправляем изменения...${NC}"
-            git push -u origin "$default_branch" --force-with-lease || \
+            git push -u origin "$default_branch" --force-with-lease 2>/dev/null || \
             git push -u origin "$default_branch" --force
         else
             echo -e "${YELLOW}❌ Пропускаем создание репозитория на GitHub${NC}"
