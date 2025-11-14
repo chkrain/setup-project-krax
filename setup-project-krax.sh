@@ -46,7 +46,7 @@ get_user_input() {
         else
             repo_name=$(basename "$(pwd)")
         fi
-        repo_description="First commit"
+        repo_description="Мой новый проект, хорошего дня!"
         default_branch="main"
         repo_visibility="public"
         clone_deps="y"
