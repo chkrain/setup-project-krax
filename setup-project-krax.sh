@@ -527,7 +527,7 @@ create_github_repo() {
     if [ "$existing_non_project_files" -gt 0 ] || [ "$existing_non_project_dirs" -gt 0 ]; then
         echo -e "${YELLOW}⚠️  В директории есть посторонние файлы/папки:${NC}"
         find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" ! -name "setup-project-krax.sh" 2>/dev/null || true
-        find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" ! -name "pyplc" ! -name "pysca" ! -name "$repo_name" 2>/dev/null || true
+        find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" ! -name "pyplc" ! -name "pysca" ! -name "resources.qrc" ! -name "resources.rrc" ! -name "control.ex" ! -name "custopmplugin.py.ex" ! -name "pyproject.toml" ! -name "pysca-hmi.desctop" ! -name "pysca-hmi.png" ! -name "default.scada," 2>/dev/null || true
         
         read -p "$(echo -e "${YELLOW}🗑️  Удалить посторонние файлы и продолжить? (y/n, по умолчанию: n): ${NC}")" delete_existing
         delete_existing=${delete_existing:-"n"}
