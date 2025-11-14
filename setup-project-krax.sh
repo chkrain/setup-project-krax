@@ -455,10 +455,10 @@ import_additional_resources() {
 <qresource>
 EOF
 
-    for file in ../*; do
+    for file in resources/*; do
         if [ -f "$file" ]; then
             filename=$(basename "$file")
-            echo "    <file>$filename</file>" >> resources.qrc
+            echo "    <file>resources/$filename</file>" >> resources.qrc
         fi
     done
 
@@ -494,7 +494,6 @@ create_github_repo() {
     
     cd "$WORK_DIR"
 
-    # Получаем имя пользователя GitHub
     GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "")
     if [ -z "$GITHUB_USER" ]; then
         error_exit "Не удалось получить имя пользователя GitHub. Проверьте авторизацию: gh auth login"
@@ -502,9 +501,19 @@ create_github_repo() {
 
     if [ "$AUTO_MODE" = true ]; then
         echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
-        
+
+        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+        EXPECTED_REMOTE="https://github.com/$GITHUB_USER/$repo_name.git"
+
         if gh repo view "$repo_name" &>/dev/null; then
             echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, подключаемся...${NC}"
+
+            if [ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" ]; then
+                echo -e "${YELLOW}🔄 Исправляем remote URL...${NC}"
+                git remote remove origin 2>/dev/null || true
+                git remote add origin "$EXPECTED_REMOTE"
+            fi
+
             git remote remove origin 2>/dev/null || true
             git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
             
@@ -525,6 +534,7 @@ create_github_repo() {
                 
                 # Ручное создание репозитория
                 gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --confirm
+                git remote remove origin 2>/dev/null || true
                 git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
                 git push -u origin "$default_branch"
             fi
