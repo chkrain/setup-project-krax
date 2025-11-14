@@ -456,10 +456,33 @@ import_additional_resources() {
 
     if [ -d "images" ]; then
         echo -e "${YELLOW}📁 Перемещение изображений из images...${NC}"
+        
+        if [ -f "images/.git" ]; then
+            echo -e "${YELLOW}🔄 images является submodule, получаем файлы...${NC}"
+            cd images
+            git checkout main 2>/dev/null || git checkout master 2>/dev/null
+            cd ..
+        fi
+        
         for file in images/*; do
             if [ -f "$file" ]; then
                 filename=$(basename "$file")
-                if [[ "$filename" == *.png || "$filename" == *.jpg || "$filename" == *.jpeg || "$filename" == *.gif || "$filename" == *.svg || "$filename" == *.webp || "$filename" == *.mng ]]; then
+                if [ -f "resources/$filename" ]; then
+                    new_name="${filename%.*}_1.${filename##*.}"
+                    cp "$file" "resources/$new_name"
+                    echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                else
+                    cp "$file" "resources/"
+                    echo -e "${GREEN}✅ $filename скопирован${NC}"
+                fi
+            fi
+        done
+        
+        if [ -d "images/resources" ]; then
+            echo -e "${YELLOW}📁 Перемещение ресурсов из images/resources...${NC}"
+            for file in images/resources/*; do
+                if [ -f "$file" ]; then
+                    filename=$(basename "$file")
                     if [ -f "resources/$filename" ]; then
                         new_name="${filename%.*}_1.${filename##*.}"
                         cp "$file" "resources/$new_name"
@@ -468,15 +491,13 @@ import_additional_resources() {
                         cp "$file" "resources/"
                         echo -e "${GREEN}✅ $filename скопирован${NC}"
                     fi
-                else
-                    echo -e "${YELLOW}⚠️  Пропускаем $filename (не изображение)${NC}"
                 fi
-            fi
-        done
+            done
+        fi
         
-        if [ -d "images/resources" ]; then
-            echo -e "${YELLOW}📁 Перемещение ресурсов из images/resources...${NC}"
-            for file in images/resources/*; do
+        if [ -d "images/img" ]; then
+            echo -e "${YELLOW}📁 Перемещение ресурсов из images/img...${NC}"
+            for file in images/img/*; do
                 if [ -f "$file" ]; then
                     filename=$(basename "$file")
                     if [ -f "resources/$filename" ]; then
