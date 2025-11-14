@@ -11,6 +11,7 @@ NC='\033[0m'
 SCRIPT_NAME=$(basename "$0")
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 SELF_DELETE=false
+AUTO_MODE=false
 
 error_exit() {
     echo -e "${RED}❌ ОШИБКА: $1${NC}" >&2
@@ -38,6 +39,29 @@ check_dependencies() {
 get_user_input() {
     echo -e "${BLUE}🎯 Настройка нового проекта${NC}"
     
+    if [ "$AUTO_MODE" = true ]; then
+        repo_name="krax-plc-project"
+        repo_description="Создано автоматически"
+        default_branch="main"
+        repo_visibility="private"
+        clone_deps="y"
+        
+        if [[ "$(pwd)" == "$SCRIPT_DIR" ]]; then
+            SELF_DELETE=true
+        fi
+        
+        echo -e "${GREEN}📊 Автоматические настройки:${NC}"
+        echo -e "  Название: ${GREEN}$repo_name${NC}"
+        echo -e "  Описание: ${GREEN}$repo_description${NC}"
+        echo -e "  Ветка: ${GREEN}$default_branch${NC}"
+        echo -e "  Видимость: ${GREEN}$repo_visibility${NC}"
+        echo -e "  Клонировать зависимости: ${GREEN}$clone_deps${NC}"
+        if [[ "$(pwd)" == "$SCRIPT_DIR" ]]; then
+            echo -e "  Удалить скрипт: ${GREEN}да${NC}"
+        fi
+        return
+    fi
+
     read -p "$(echo -e "${YELLOW}📝 Название репозитория (по умолчанию: krax-plc-project): ${NC}")" repo_name
     repo_name=${repo_name:-"krax-plc-project"}
     
@@ -53,7 +77,6 @@ get_user_input() {
     read -p "$(echo -e "${YELLOW}📦 Клонировать зависимости pyplc, pysca? (y/n, по умолчанию: y): ${NC}")" clone_deps
     clone_deps=${clone_deps:-"y"}
     
-    # Спросить об автоудалении только если скрипт запущен из своей директории
     if [[ "$(pwd)" == "$SCRIPT_DIR" ]]; then
         read -p "$(echo -e "${YELLOW}🗑️  Удалить этот скрипт после создания проекта? (y/n, по умолчанию: y): ${NC}")" delete_self
         delete_self=${delete_self:-"y"}
@@ -375,55 +398,114 @@ create_github_repo() {
         cd "$repo_name"
     fi
     
+    existing_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" | wc -l)
+    existing_dirs=$(find . -maxdepth 1 -type d ! -name "." ! -name ".git" | wc -l)
+    
+    if [ "$existing_files" -gt 0 ] || [ "$existing_dirs" -gt 1 ]; then
+        echo -e "${YELLOW}⚠️  В директории уже есть файлы/папки:${NC}"
+        ls -la
+        read -p "$(echo -e "${YELLOW}🗑️  Удалить существующие файлы и продолжить? (y/n, по умолчанию: n): ${NC}")" delete_existing
+        delete_existing=${delete_existing:-"n"}
+        
+        if [[ $delete_existing =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}🗑️  Удаление существующих файлов...${NC}"
+            find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" -delete
+            find . -maxdepth 1 -type d ! -name "." ! -name ".git" -exec rm -rf {} + 2>/dev/null || true
+            echo -e "${GREEN}✅ Существующие файлы удалены${NC}"
+        else
+            echo -e "${YELLOW}ℹ️  Продолжаем с существующими файлами${NC}"
+        fi
+    fi
+    
     if [ -d ".git" ]; then
-        echo -e "${YELLOW}⚠️  Git репозиторий уже существует, очищаем...${NC}"
-        rm -rf .git
+        echo -e "${YELLOW}⚠️  Git репозиторий уже существует${NC}"
+        read -p "$(echo -e "${YELLOW}🔄 Использовать существующий репозиторий? (y/n, по умолчанию: y): ${NC}")" use_existing_git
+        use_existing_git=${use_existing_git:-"y"}
+        
+        if [[ ! $use_existing_git =~ ^[Yy]$ ]]; then
+            echo -e "${YELLOW}🗑️  Очищаем существующий git...${NC}"
+            rm -rf .git
+            git init
+            git config --global init.defaultBranch "$default_branch"
+        else
+            echo -e "${YELLOW}🔄 Используем существующий git репозиторий${NC}"
+            if git remote get-url origin &>/dev/null; then
+                echo -e "${YELLOW}📥 Обновляем из remote...${NC}"
+                git pull origin "$default_branch" || echo -e "${YELLOW}⚠️  Не удалось обновить из remote${NC}"
+            fi
+        fi
+    else
+        git init
+        git config --global init.defaultBranch "$default_branch"
     fi
     
-    git config --global init.defaultBranch "$default_branch"
-    
-    git init
-    
     if [ "$SELF_DELETE" = true ]; then
-        echo "setup-project-krax.sh" >> .gitignore
-        echo "README.md" >> .gitignore
+        if ! grep -q "setup-project-krax.sh" .gitignore 2>/dev/null; then
+            echo "setup-project-krax.sh" >> .gitignore
+        fi
+        if ! grep -q "README.md" .gitignore 2>/dev/null; then
+            echo "README.md" >> .gitignore
+        fi
     fi
     
+    echo -e "${YELLOW}📦 Добавление файлов в git...${NC}"
+    
     if [ "$SELF_DELETE" = true ]; then
-        echo -e "${YELLOW}📦 Добавление файлов в git (исключая скрипт и старый README)...${NC}"
         find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" | while read file; do
-            git add "$file"
+            git add -f "$file"
         done
     else
-        echo -e "${YELLOW}📦 Добавление всех файлов в git...${NC}"
         git add .
     fi
     
     echo -e "${YELLOW}📊 Статус git:${NC}"
     git status --short
     
-    if git diff --cached --quiet; then
+    if git diff --cached --quiet && [ -z "$(git status --porcelain)" ]; then
         echo -e "${YELLOW}⚠️  Нет изменений для коммита${NC}"
     else
-        git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
-        echo -e "${GREEN}✅ Коммит создан${NC}"
+        git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description" || \
+        echo -e "${YELLOW}⚠️  Не удалось создать коммит (возможно, нет изменений)${NC}"
     fi
     
-    if gh repo create "$repo_name" \
-        --description "$repo_description" \
-        --"$repo_visibility" \
-        --push \
-        --source=.; then
-        echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
-        echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
+    echo -e "${YELLOW}🔍 Проверка существования репозитория на GitHub...${NC}"
+    if gh repo view "$repo_name" &>/dev/null; then
+        echo -e "${YELLOW}⚠️  Репозиторий '$repo_name' уже существует на GitHub${NC}"
+        read -p "$(echo -e "${YELLOW}🔄 Использовать существующий репозиторий? (y/n/rename, по умолчанию: y): ${NC}")" use_existing_repo
+        use_existing_repo=${use_existing_repo:-"y"}
+        
+        if [[ $use_existing_repo =~ ^[Rr] ]]; then
+            read -p "$(echo -e "${YELLOW}📝 Введите новое название репозитория: ${NC}")" new_repo_name
+            repo_name="$new_repo_name"
+            echo -e "${YELLOW}🔄 Создаем репозиторий с новым именем '$repo_name'...${NC}"
+            gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --push
+        elif [[ $use_existing_repo =~ ^[Yy] ]]; then
+            echo -e "${YELLOW}🔄 Подключаемся к существующему репозиторию...${NC}"
+            git remote remove origin 2>/dev/null || true
+            git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
+            
+            echo -e "${YELLOW}📥 Получаем изменения...${NC}"
+            git pull origin "$default_branch" --allow-unrelated-histories --no-edit || \
+            echo -e "${YELLOW}⚠️  Не удалось объединить истории, пробуем форсировать...${NC}"
+            
+            echo -e "${YELLOW}📤 Отправляем изменения...${NC}"
+            git push -u origin "$default_branch" --force-with-lease || \
+            git push -u origin "$default_branch" --force
+        else
+            echo -e "${YELLOW}❌ Пропускаем создание репозитория на GitHub${NC}"
+            return 0
+        fi
     else
-        echo -e "${YELLOW}⚠️  Проблема с remote, пробуем альтернативный метод...${NC}"
-        gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility"
-        git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
-        git push -u origin "$default_branch"
-        echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
-        echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
+        echo -e "${YELLOW}🆕 Создаем новый репозиторий на GitHub...${NC}"
+        if gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --push; then
+            echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
+        else
+            echo -e "${RED}❌ Не удалось создать репозиторий${NC}"
+            return 1
+        fi
     fi
+    
+    echo -e "${GREEN}🔗 URL: https://github.com/$(gh api user --jq '.login')/$repo_name${NC}"
 }
 
 self_cleanup() {
@@ -452,6 +534,15 @@ main() {
     echo -e "${BLUE}🚀 Автоматическая настройка проекта Krax${NC}"
     echo -e "${BLUE}=========================================${NC}"
     
+    read -p "$(echo -e "${YELLOW}Запустить в автоматическом режиме? (y/n, по умолчанию: y): ${NC}")" auto_mode
+    auto_mode=${auto_mode:-"y"}
+    if [[ $auto_mode =~ ^[Yy]$ ]]; then
+        AUTO_MODE=true
+        echo -e "${GREEN}✅ Автоматический режим активирован${NC}"
+    else
+        echo -e "${YELLOW}ℹ️  Интерактивный режим${NC}"
+    fi
+    
     check_dependencies
     get_user_input
     
@@ -477,7 +568,7 @@ main() {
     echo -e "  ${GREEN}6.${NC} Ошибка?: ${GREEN}TG @raincher${NC}"
     
     if [ "$SELF_DELETE" = false ]; then
-        echo -e "  ${GREEN}5.${RED} Удалите ${NC}капс-текст или ${GREEN}выполните .${NC}сказанное им"
+        echo -e "  ${GREEN}7.${RED} Удалите ${NC}капс-текст или ${GREEN}выполните .${NC}сказанное им"
     fi
 }
 
