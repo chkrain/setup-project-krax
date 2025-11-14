@@ -389,13 +389,25 @@ create_github_repo() {
         echo "README.md" >> .gitignore
     fi
     
-    git add .
-    
     if [ "$SELF_DELETE" = true ]; then
-        git reset -- setup-project-krax.sh README.md 2>/dev/null || true
+        echo -e "${YELLOW}📦 Добавление файлов в git (исключая скрипт и старый README)...${NC}"
+        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" | while read file; do
+            git add "$file"
+        done
+    else
+        echo -e "${YELLOW}📦 Добавление всех файлов в git...${NC}"
+        git add .
     fi
     
-    git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
+    echo -e "${YELLOW}📊 Статус git:${NC}"
+    git status --short
+    
+    if git diff --cached --quiet; then
+        echo -e "${YELLOW}⚠️  Нет изменений для коммита${NC}"
+    else
+        git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
+        echo -e "${GREEN}✅ Коммит создан${NC}"
+    fi
     
     if gh repo create "$repo_name" \
         --description "$repo_description" \
