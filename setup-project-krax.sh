@@ -83,7 +83,7 @@ get_user_input() {
 
 create_project_structure() {
     echo -e "${YELLOW}📁 Создание структуры проекта...${NC}"
-    
+    cd ../
     mkdir -p .vscode gui resources ui src
     
     cat > .vscode/launch.json << 'EOF'
