@@ -8,7 +8,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' 
 
-# Переменные для самоудаления
 SCRIPT_NAME=$(basename "$0")
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 SELF_DELETE=false
@@ -336,12 +335,12 @@ $repo_description
 python src/krax.py
 
 # Run in simulator mode
-python -m gui --simulator
+F5 in src/krax.py
 \`\`\`
 
 ## Development
 
-This project was automatically generated using Krax setup script.
+This project was automatically generated using Krax setup script https://github.com/chkrain/setup-project-krax.git
 EOF
 
     echo -e "${GREEN}✅ Структура проекта создана${NC}"
@@ -370,6 +369,7 @@ create_github_repo() {
     echo -e "${YELLOW}🚀 Создание репозитория на GitHub...${NC}"
     
     if [ "$SELF_DELETE" = true ]; then
+        SCRIPT_DIR_TO_DELETE="$SCRIPT_DIR"
         cd ..
         mkdir -p "$repo_name"
         cd "$repo_name"
@@ -427,6 +427,10 @@ self_cleanup() {
             rm -rf "$SCRIPT_DIR"
             echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
         fi
+        if [ -d "$SCRIPT_DIR_TO_DELETE" ]; then
+            rm -rf "$SCRIPT_DIR_TO_DELETE"
+            echo -e "${GREEN}✅ Лишняя директория ушла${NC}"
+        fi
         
         cd "$PROJECT_PATH"
     fi
@@ -439,7 +443,6 @@ main() {
     check_dependencies
     get_user_input
     
-    # Если автоудаление включено, сначала создаем директорию проекта
     if [ "$SELF_DELETE" = true ]; then
         echo -e "${YELLOW}📁 Подготовка директории проекта...${NC}"
         cd ..
@@ -455,9 +458,11 @@ main() {
     echo -e "\n${GREEN}🎉 Настройка проекта успешно завершена!${NC}"
     echo -e "\n${YELLOW}📋 Следующие шаги:${NC}"
     echo -e "  ${GREEN}1.${NC} Перейдите: https://github.com/$(gh api user --jq '.login')/$repo_name"
-    echo -e "  ${GREEN}2.${NC} Протестируйте проект: ${GREEN}python src/krax.py${NC}"
-    echo -e "  ${GREEN}3.${NC} Протестируйте симулятор: ${GREEN}python -m gui --simulator${NC}"
-    echo -e "  ${GREEN}4.${NC} Откройте в VS Code: ${GREEN}code .${NC}"
+    echo -e "  ${GREEN}2.${NC} Перейдите в DIY: ${GREEN}и создайте defaul.scada${NC}"
+    echo -e "  ${GREEN}3.${NC} Протестируйте проект: ${GREEN}python src/krax.py${NC}"
+    echo -e "  ${GREEN}4.${NC} Протестируйте симулятор: ${GREEN}F5${NC}"
+    echo -e "  ${GREEN}5.${NC} KRAX создатель: ${GREEN}https://github.com/vlinnik${NC}"
+    echo -e "  ${GREEN}6.${NC} Ошибка?: ${GREEN}TG @raincher${NC}"
     
     if [ "$SELF_DELETE" = false ]; then
         echo -e "  ${GREEN}5.${RED} Удалите ${NC}капс-текст или ${GREEN}выполните .${NC}сказанное им"
