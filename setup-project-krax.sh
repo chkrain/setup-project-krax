@@ -90,19 +90,30 @@ create_project_structure() {
 {
     "version": "0.0.1",
     "configurations": [
+
+        {
+            "name": "Runtime",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gui",
+            "env": {"PYTHONPYCACHEPREFIX": "${workspaceFolder}/__pycache__"},
+            "args": ["--device","192.168.2.10"]
+        },
         {
             "name": "Simulator",
             "type": "debugpy",
             "request": "launch",
             "module": "gui",
+            "env": {"PYTHONPYCACHEPREFIX": "${workspaceFolder}/__pycache__"},
             "args": ["--simulator"]
         },
         {
-            "name": "Python Debugger: Current File",
+            "name": "Run Python File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "env" : {"PYTHONPYCACHEPREFIX":"${workspaceFolder}/__pycache__"}
         }
     ]
 }
@@ -118,8 +129,6 @@ Main application module
 from pyplc.platform import plc
 from sys import platform
 from collections import namedtuple
-
-factory = Factory()
 
 if platform=='vscode':
     PLC = namedtuple('PLC', (''))
