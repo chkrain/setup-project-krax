@@ -400,6 +400,8 @@ create_github_repo() {
     
     cd "$WORK_DIR"
     echo -e "${YELLOW}🔍 Проверяем созданные файлы...${NC}"
+    
+    # Проверяем, есть ли созданные файлы проекта
     if [ ! -f "src/krax.py" ] && [ ! -f ".vscode/launch.json" ]; then
         echo -e "${RED}❌ Файлы проекта не найдены! Возможно, проблема с созданием структуры.${NC}"
         echo -e "${YELLOW}📁 Текущая директория: $(pwd)${NC}"
@@ -408,39 +410,25 @@ create_github_repo() {
         return 1
     fi
     
-    existing_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" | wc -l)
-    existing_dirs=$(find . -maxdepth 1 -type d ! -name "." ! -name ".git" | wc -l)
+    # Проверяем только файлы, которые НЕ относятся к проекту
+    existing_non_project_files=$(find . -maxdepth 1 -type f -name "*" ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" | wc -l)
+    existing_non_project_dirs=$(find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" | wc -l)
     
-    if [ "$existing_files" -gt 0 ] || [ "$existing_dirs" -gt 1 ]; then
-        echo -e "${YELLOW}⚠️  В директории уже есть файлы/папки:${NC}"
-        ls -la
-        read -p "$(echo -e "${YELLOW}🗑️  Удалить существующие файлы и продолжить? (y/n, по умолчанию: n): ${NC}")" delete_existing
+    if [ "$existing_non_project_files" -gt 0 ] || [ "$existing_non_project_dirs" -gt 0 ]; then
+        echo -e "${YELLOW}⚠️  В директории есть посторонние файлы/папки:${NC}"
+        # Показываем только посторонние файлы
+        find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" 2>/dev/null || true
+        find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" 2>/dev/null || true
+        
+        read -p "$(echo -e "${YELLOW}🗑️  Удалить посторонние файлы и продолжить? (y/n, по умолчанию: n): ${NC}")" delete_existing
         delete_existing=${delete_existing:-"n"}
         
         if [[ $delete_existing =~ ^[Yy]$ ]]; then
-            echo -e "${YELLOW}🗑️  Удаление существующих файлов...${NC}"
-            if [ -d ".vscode" ]; then mv .vscode .vscode_backup; fi
-            if [ -d "src" ]; then mv src src_backup; fi
-            if [ -d "gui" ]; then mv gui gui_backup; fi
-            if [ -d "resources" ]; then mv resources resources_backup; fi
-            if [ -d "ui" ]; then mv ui ui_backup; fi
-            if [ -f "docker-compose.yaml" ]; then mv docker-compose.yaml docker-compose.yaml_backup; fi
-            if [ -f "requirements.txt" ]; then mv requirements.txt requirements.txt_backup; fi
-            if [ -f "README.md" ]; then mv README.md README.md_backup; fi
-            
-            find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" -delete
-            find . -maxdepth 1 -type d ! -name "." ! -name ".git" -exec rm -rf {} + 2>/dev/null || true
-            
-            if [ -d ".vscode_backup" ]; then mv .vscode_backup .vscode; fi
-            if [ -d "src_backup" ]; then mv src_backup src; fi
-            if [ -d "gui_backup" ]; then mv gui_backup gui; fi
-            if [ -d "resources_backup" ]; then mv resources_backup resources; fi
-            if [ -d "ui_backup" ]; then mv ui_backup ui; fi
-            if [ -f "docker-compose.yaml_backup" ]; then mv docker-compose.yaml_backup docker-compose.yaml; fi
-            if [ -f "requirements.txt_backup" ]; then mv requirements.txt_backup requirements.txt; fi
-            if [ -f "README.md_backup" ]; then mv README.md_backup README.md; fi
-            
-            echo -e "${GREEN}✅ Лишние файлы удалены, файлы проекта сохранены${NC}"
+            echo -e "${YELLOW}🗑️  Удаление посторонних файлов...${NC}"
+            # Удаляем только посторонние файлы, сохраняя структуру проекта
+            find . -maxdepth 1 -type f ! -name ".git" ! -name ".gitignore" ! -name "docker-compose.yaml" ! -name "requirements.txt" ! -name "README.md" -delete 2>/dev/null || true
+            find . -maxdepth 1 -type d ! -name "." ! -name ".git" ! -name ".vscode" ! -name "src" ! -name "gui" ! -name "resources" ! -name "ui" -exec rm -rf {} + 2>/dev/null || true
+            echo -e "${GREEN}✅ Посторонние файлы удалены${NC}"
         else
             echo -e "${YELLOW}ℹ️  Продолжаем с существующими файлами${NC}"
         fi
@@ -479,13 +467,13 @@ create_github_repo() {
     
     echo -e "${YELLOW}📦 Добавление файлов в git...${NC}"
     
-    echo -e "${YELLOW}📁 Содержимое директории перед добавлением в git:${NC}"
-    find . -type f -not -path "./.git/*" | head -20
+    echo -e "${YELLOW}📁 Содержимое директории:${NC}"
+    ls -la
     
+    # Просто добавляем все файлы, кроме явно исключенных
     if [ "$SELF_DELETE" = true ]; then
-        git add -f .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
-        
-        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" -not -path "./.vscode/*" -not -path "./src/*" -not -path "./gui/*" -not -path "./resources/*" -not -path "./ui/*" | while read file; do
+        # Добавляем все, кроме скрипта и README.md
+        find . -type f -not -name "setup-project-krax.sh" -not -name "README.md" -not -path "./.git/*" | while read file; do
             git add -f "$file" 2>/dev/null || true
         done
     else
@@ -505,6 +493,7 @@ create_github_repo() {
             add_all=${add_all:-"y"}
             if [[ $add_all =~ ^[Yy]$ ]]; then
                 git add .
+                echo -e "${YELLOW}📊 Статус после добавления:${NC}"
                 git status --short
             fi
         fi
@@ -512,9 +501,17 @@ create_github_repo() {
     
     if git diff --cached --quiet; then
         echo -e "${YELLOW}⚠️  Все еще нет изменений для коммита${NC}"
-    else
+        echo -e "${YELLOW}📁 Попробуем принудительно добавить ключевые файлы:${NC}"
+        # Принудительно добавляем ключевые файлы проекта
+        git add -f .vscode/ src/ gui/ resources/ ui/ docker-compose.yaml requirements.txt .gitignore README.md 2>/dev/null || true
+        git status --short
+    fi
+    
+    if ! git diff --cached --quiet; then
         git commit -m "Создано с помощью скрипта setup-project-krax.sh https://github.com/chkrain/setup-project-krax | First Commit: $repo_description"
         echo -e "${GREEN}✅ Коммит создан${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Пропускаем коммит - нет изменений${NC}"
     fi
     
     echo -e "${YELLOW}🔍 Проверка существования репозитория на GitHub...${NC}"
