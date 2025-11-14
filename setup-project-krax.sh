@@ -369,7 +369,6 @@ EOF
     echo -e "${GREEN}✅ Структура проекта создана${NC}"
 }
 
-
 clone_dependencies() {
     if [[ $clone_deps =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}📦 Клонирование зависимостей...${NC}"
@@ -386,6 +385,60 @@ clone_dependencies() {
             echo -e "${RED}❌ Не удалось клонировать pysca${NC}"
         fi
     fi
+}
+
+import_additional_resources() {
+    echo -e "${YELLOW}🔄 Импорт дополнительных ресурсов...${NC}"
+    
+    if [ ! -d "concretetheme" ]; then
+        git clone https://github.com/vlinnik/concretetheme.git 2>/dev/null && \
+        echo -e "${GREEN}✅ concretetheme склонирован${NC}" || \
+        echo -e "${RED}❌ Не удалось клонировать concretetheme${NC}"
+    fi
+    
+    if [ ! -d "ETALON-250716" ]; then
+        git clone https://github.com/vlinnik/ETALON-250716.git 2>/dev/null && \
+        echo -e "${GREEN}✅ ETALON-250716 склонирован${NC}" || \
+        echo -e "${RED}❌ Не удалось клонировать ETALON-250716${NC}"
+    fi
+    
+    if [ -d "concretetheme/images" ]; then
+        echo -e "${YELLOW}📁 Перемещение изображений из concretetheme...${NC}"
+        for file in concretetheme/images/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                if [ -f "resources/$filename" ]; then
+                    new_name="${filename%.*}_1.${filename##*.}"
+                    cp "$file" "resources/$new_name"
+                    echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                else
+                    cp "$file" "resources/"
+                    echo -e "${GREEN}✅ $filename скопирован${NC}"
+                fi
+            fi
+        done
+    fi
+    
+    if [ -d "ETALON-250716/resources" ]; then
+        echo -e "${YELLOW}📁 Перемещение ресурсов из ETALON-250716...${NC}"
+        for file in ETALON-250716/resources/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                if [ -f "resources/$filename" ]; then
+                    new_name="${filename%.*}_1.${filename##*.}"
+                    cp "$file" "resources/$new_name"
+                    echo -e "${GREEN}✅ $filename -> $new_name (переименован)${NC}"
+                else
+                    cp "$file" "resources/"
+                    echo -e "${GREEN}✅ $filename скопирован${NC}"
+                fi
+            fi
+        done
+    fi
+    
+    echo -e "${YELLOW}🗑️  Очистка временных репозиториев...${NC}"
+    [ -d "concretetheme" ] && rm -rf concretetheme && echo -e "${GREEN}✅ concretetheme удален${NC}"
+    [ -d "ETALON-250716" ] && rm -rf ETALON-250716 && echo -e "${GREEN}✅ ETALON-250716 удален${NC}"
 }
 
 create_github_repo() {
@@ -610,6 +663,7 @@ main() {
     
     create_project_structure
     clone_dependencies
+    import_additional_resources
     create_github_repo
     self_cleanup
     
