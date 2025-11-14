@@ -503,6 +503,7 @@ EOF
     echo -e "${YELLOW}🗑️  Очистка временных репозиториев...${NC}"
     [ -d "concretetheme" ] && rm -rf concretetheme && echo -e "${GREEN}✅ concretetheme удален${NC}"
     [ -d "ETALON-250716" ] && rm -rf ETALON-250716 && echo -e "${GREEN}✅ ETALON-250716 удален${NC}"
+    [ -d "images" ] && rm -rf images && echo -e "${GREEN}✅ images удален${NC}"
 }
 
 create_github_repo() {
