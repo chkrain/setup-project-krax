@@ -626,13 +626,15 @@ self_cleanup() {
     if [ "$SELF_DELETE" = true ]; then
         echo -e "${YELLOW}🗑️  Автоудаление скрипта...${NC}"
         
-        PROJECT_PATH="$(pwd)"
+        CURRENT_DIR=$(pwd)
         
         if [ -n "$SCRIPT_DIR_TO_DELETE" ] && [ -d "$SCRIPT_DIR_TO_DELETE" ]; then
             echo -e "${YELLOW}🗑️  Удаляем директорию со скриптом: $SCRIPT_DIR_TO_DELETE${NC}"
+            cd ..
             rm -rf "$SCRIPT_DIR_TO_DELETE"
             echo -e "${GREEN}✅ Скрипт и временные файлы удалены${NC}"
         else
+            cd ..
             SCRIPT_BASE_DIR=$(basename "$SCRIPT_DIR")
             if [ -d "$SCRIPT_BASE_DIR" ]; then
                 echo -e "${YELLOW}🗑️  Удаляем директорию: $SCRIPT_BASE_DIR${NC}"
@@ -641,6 +643,12 @@ self_cleanup() {
             else
                 echo -e "${YELLOW}⚠️  Директория со скриптом не найдена${NC}"
             fi
+        fi
+        
+        if [ -d "$repo_name" ] && [ -z "$(ls -A "$repo_name")" ]; then
+            echo -e "${YELLOW}🗑️  Удаляем пустую директорию проекта: $repo_name${NC}"
+            rm -rf "$repo_name"
+            echo -e "${GREEN}✅ Пустая директория удалена${NC}"
         fi
     fi
 }
@@ -666,12 +674,20 @@ main() {
         cd ..
         mkdir -p "$repo_name"
         cd "$repo_name"
+        PROJECT_ROOT=$(pwd)
+    else
+        PROJECT_ROOT=$(pwd)
     fi
     
     create_project_structure
     clone_dependencies
     import_additional_resources
     create_github_repo
+    
+    if [ "$SELF_DELETE" = true ]; then
+        cd ..
+    fi
+    
     self_cleanup
     
     echo -e "\n${GREEN}🎉 Настройка проекта успешно завершена!${NC}"
