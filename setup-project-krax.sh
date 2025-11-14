@@ -502,28 +502,49 @@ create_github_repo() {
     if [ "$AUTO_MODE" = true ]; then
         echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
 
-        CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+        echo -e "${YELLOW}🔍 Отладочная информация:${NC}"
+        echo -e "  GitHub пользователь: $GITHUB_USER"
+        echo -e "  Имя репозитория: $repo_name"
+        echo -e "  Текущая директория: $(pwd)"
+        
+        echo -e "${YELLOW}🔄 Очистка всех remotes...${NC}"
+        git remote | while read remote; do
+            echo -e "  Удаляем remote: $remote"
+            git remote remove "$remote"
+        done
+
         EXPECTED_REMOTE="https://github.com/$GITHUB_USER/$repo_name.git"
+        echo -e "  Ожидаемый remote: $EXPECTED_REMOTE"
 
         if gh repo view "$repo_name" &>/dev/null; then
             echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, подключаемся...${NC}"
 
-            if [ "$CURRENT_REMOTE" != "$EXPECTED_REMOTE" ]; then
-                echo -e "${YELLOW}🔄 Исправляем remote URL...${NC}"
-                git remote remove origin 2>/dev/null || true
-                git remote add origin "$EXPECTED_REMOTE"
+            git remote add origin "$EXPECTED_REMOTE"
+            echo -e "${GREEN}✅ Remote установлен: $EXPECTED_REMOTE${NC}"
+            
+            ACTUAL_REMOTE=$(git remote get-url origin 2>/dev/null || echo "не установлен")
+            echo -e "  Проверка remote: $ACTUAL_REMOTE"
+            
+            if [ "$ACTUAL_REMOTE" != "$EXPECTED_REMOTE" ]; then
+                echo -e "${RED}❌ Remote не совпадает!${NC}"
+                echo -e "  Ожидалось: $EXPECTED_REMOTE"
+                echo -e "  Получили: $ACTUAL_REMOTE"
+                error_exit "Не удалось установить правильный remote URL"
             fi
             
-            echo -e "  Текущий remote: ${CURRENT_REMOTE:-не установлен}"
-            echo -e "  Ожидаемый remote: $EXPECTED_REMOTE"
-            echo -e "  GitHub пользователь: $GITHUB_USER"
-            echo -e "  Имя репозитория: $repo_name"
             echo -e "${YELLOW}📤 Отправляем изменения...${NC}"
             if git push -u origin "$default_branch" --force-with-lease 2>/dev/null; then
                 echo -e "${GREEN}✅ Изменения отправлены${NC}"
             else
-                git push -u origin "$default_branch" --force
-                echo -e "${GREEN}✅ Изменения отправлены (использован force)${NC}"
+                echo -e "${YELLOW}🔄 Пробуем с force...${NC}"
+                if git push -u origin "$default_branch" --force 2>/dev/null; then
+                    echo -e "${GREEN}✅ Изменения отправлены (использован force)${NC}"
+                else
+                    echo -e "${RED}❌ Не удалось отправить изменения${NC}"
+                    echo -e "${YELLOW}🔄 Пробуем создать репозиторий заново...${NC}"
+                    gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --confirm
+                    git push -u origin "$default_branch" --force
+                fi
             fi
         else
             echo -e "${YELLOW}🆕 Создаем новый репозиторий...${NC}"
@@ -533,9 +554,7 @@ create_github_repo() {
                 echo -e "${RED}❌ Не удалось создать репозиторий автоматически${NC}"
                 echo -e "${YELLOW}🔄 Пробуем ручной метод...${NC}"
                 
-                # Ручное создание репозитория
                 gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --confirm
-                git remote remove origin 2>/dev/null || true
                 git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
                 git push -u origin "$default_branch"
             fi
