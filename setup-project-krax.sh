@@ -494,6 +494,12 @@ create_github_repo() {
     
     cd "$WORK_DIR"
 
+    if [ ! -d ".git" ]; then
+        echo -e "${YELLOW}🔄 Инициализация git репозитория...${NC}"
+        git init
+        git config --global init.defaultBranch "$default_branch"
+    fi
+
     GITHUB_USER=$(gh api user --jq '.login' 2>/dev/null || echo "")
     if [ -z "$GITHUB_USER" ]; then
         error_exit "Не удалось получить имя пользователя GitHub. Проверьте авторизацию: gh auth login"
@@ -502,10 +508,20 @@ create_github_repo() {
     if [ "$AUTO_MODE" = true ]; then
         echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
 
-        echo -e "${YELLOW}🔍 Отладочная информация:${NC}"
         echo -e "  GitHub пользователь: $GITHUB_USER"
         echo -e "  Имя репозитория: $repo_name"
         echo -e "  Текущая директория: $(pwd)"
+        echo -e "  Git статус: $(git status --short 2>/dev/null || echo "не инициализирован")"
+
+        echo -e "${YELLOW}📦 Добавление файлов в git...${NC}"
+        git add .
+        
+        if ! git diff --cached --quiet || [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Создано с помощью скрипта setup-project-krax.sh | First Commit: $repo_description"
+            echo -e "${GREEN}✅ Коммит создан${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Нет изменений для коммита${NC}"
+        fi
         
         echo -e "${YELLOW}🔄 Очистка всех remotes...${NC}"
         git remote | while read remote; do
