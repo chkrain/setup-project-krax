@@ -469,12 +469,7 @@ create_github_repo() {
         echo -e "${YELLOW}🔍 Автоматическая проверка репозитория...${NC}"
         
         if gh repo view "$repo_name" &>/dev/null; then
-            echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, подключаемся...${NC}"
-            git remote remove origin 2>/dev/null || true
-            git remote add origin "https://github.com/$(gh api user --jq '.login')/$repo_name.git"
-            
-            git pull origin "$default_branch" --allow-unrelated-histories --no-edit 2>/dev/null || true
-            
+            echo -e "${YELLOW}🔄 Репозиторий '$repo_name' существует, пушим изменения...${NC}"
             git push -u origin "$default_branch" --force-with-lease 2>/dev/null || \
             git push -u origin "$default_branch" --force
         else
