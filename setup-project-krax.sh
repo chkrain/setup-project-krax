@@ -592,7 +592,7 @@ create_github_repo() {
             read -p "$(echo -e "${YELLOW}📝 Введите новое название репозитория: ${NC}")" new_repo_name
             repo_name="$new_repo_name"
             echo -e "${YELLOW}🔄 Создаем репозиторий с новым именем '$repo_name'...${NC}"
-            gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --push
+            gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --source=. --push
         elif [[ $use_existing_repo =~ ^[Yy] ]]; then
             echo -e "${YELLOW}🔄 Подключаемся к существующему репозиторию...${NC}"
             git remote remove origin 2>/dev/null || true
@@ -611,7 +611,7 @@ create_github_repo() {
         fi
     else
         echo -e "${YELLOW}🆕 Создаем новый репозиторий на GitHub...${NC}"
-        if gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --push; then
+        if gh repo create "$repo_name" --description "$repo_description" --"$repo_visibility" --source=. --push; then
             echo -e "${GREEN}✅ Репозиторий создан и отправлен на GitHub${NC}"
         else
             echo -e "${RED}❌ Не удалось создать репозиторий${NC}"
